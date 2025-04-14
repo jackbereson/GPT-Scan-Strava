@@ -54,3 +54,6 @@ coverage/
 *.sw?
 
 results.json
+.next
+
+public

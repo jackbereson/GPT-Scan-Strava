@@ -1,0 +1,481 @@
+import { NextPage } from "next";
+import Head from "next/head";
+import React, { useState, FormEvent, ChangeEvent, useEffect } from "react";
+
+interface UserImageData {
+  userId: string;
+  images: string[];
+  processed: boolean;
+  analysis?: {
+    activity_name?: string;
+    distance?: string;
+    pace?: string;
+    time?: string;
+    date?: string;
+    location?: string;
+    achievements?: number;
+    rawText?: string;
+    error?: string;
+  }[];
+}
+
+const Home: NextPage = () => {
+  const [formData, setFormData] = useState({
+    userId: "",
+    imageFiles: [] as File[],
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [message, setMessage] = useState({ type: "", content: "" });
+  const [userImagesList, setUserImagesList] = useState<UserImageData[]>([]);
+
+  useEffect(() => {
+    // Load user images list from localStorage on component mount
+    loadUserImagesFromLocalStorage();
+  }, []);
+
+  const loadUserImagesFromLocalStorage = () => {
+    try {
+      const storedData = localStorage.getItem("userImagesList");
+      if (storedData) {
+        setUserImagesList(JSON.parse(storedData));
+      }
+    } catch (error) {
+      console.error("Error loading from localStorage:", error);
+    }
+  };
+
+  const saveToLocalStorage = (userId: string, newImages: string[]) => {
+    try {
+      // Get current data
+      const existingData = localStorage.getItem("userImagesList");
+      let usersList: UserImageData[] = existingData
+        ? JSON.parse(existingData)
+        : [];
+
+      // Find if user already exists
+      const userIndex = usersList.findIndex((item) => item.userId === userId);
+
+      if (userIndex >= 0) {
+        // Update existing user's images
+        usersList[userIndex].images = [
+          ...usersList[userIndex].images,
+          ...newImages,
+        ];
+      } else {
+        // Add new user
+        usersList.push({
+          userId,
+          images: newImages,
+          processed: false,
+        });
+      }
+
+      // Save back to localStorage
+      localStorage.setItem("userImagesList", JSON.stringify(usersList));
+
+      // Update state
+      setUserImagesList(usersList);
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value, files } = e.target;
+
+    if (name === "imageFiles" && files && files.length > 0) {
+      const fileArray = Array.from(files);
+      setFormData({
+        ...formData,
+        imageFiles: fileArray,
+      });
+    } else if (name === "userId") {
+      setFormData({
+        ...formData,
+        userId: value,
+      });
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (formData.userId.trim() === "" || formData.imageFiles.length === 0) {
+      setMessage({
+        type: "error",
+        content: "Vui lòng nhập User ID và chọn ít nhất một hình ảnh",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage({ type: "", content: "" });
+
+    try {
+      const submitData = new FormData();
+      submitData.append("userId", formData.userId);
+
+      formData.imageFiles.forEach((file, index) => {
+        submitData.append("imageFiles", file);
+      });
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: submitData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Get image names for localStorage
+        const imageNames = formData.imageFiles.map((file) => file.name);
+
+        // Save to localStorage
+        saveToLocalStorage(formData.userId, imageNames);
+
+        setMessage({
+          type: "success",
+          content:
+            "Tải lên thành công! Đã lưu " +
+            formData.imageFiles.length +
+            " hình ảnh.",
+        });
+
+        setFormData({
+          ...formData,
+          imageFiles: [],
+        });
+
+        const fileInput = document.getElementById(
+          "imageFiles"
+        ) as HTMLInputElement;
+        if (fileInput) fileInput.value = "";
+      } else {
+        setMessage({
+          type: "error",
+          content: result.message || "Có lỗi xảy ra khi tải lên",
+        });
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setMessage({
+        type: "error",
+        content: "Có lỗi xảy ra khi tải lên",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    try {
+      // Get current data
+      const usersList = [...userImagesList].filter(
+        (item) => item.userId !== userId
+      );
+
+      // Save back to localStorage
+      localStorage.setItem("userImagesList", JSON.stringify(usersList));
+
+      // Update state
+      setUserImagesList(usersList);
+    } catch (error) {
+      console.error("Error removing user from localStorage:", error);
+    }
+  };
+
+  const processImages = async (userId: string) => {
+    setIsProcessing(userId);
+    setMessage({ type: "", content: "" });
+
+    try {
+      const response = await fetch(`/api/images?userId=${userId}`, {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update the user's processed status and analysis data
+        const updatedUsersList = userImagesList.map((user) => {
+          if (user.userId === userId) {
+            // Parse the results if they exist
+            let analysisData: any = [];
+
+            if (result.data && result.data[userId]) {
+              try {
+                const userData = result.data[userId][0];
+                if (userData.analysis && userData.analysis.rawText) {
+                  // Try to parse the JSON from the rawText
+                  const rawText = userData.analysis.rawText;
+                  // Extract the JSON part between the backticks with improved regex
+                  // Allow for flexible whitespace and different markdown code formats
+                  const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                  if (jsonMatch && jsonMatch[1]) {
+                    try {
+                      analysisData = JSON.parse(jsonMatch[1]);
+                      // If the parsed data is not an array, wrap it in an array
+                      if (!Array.isArray(analysisData)) {
+                        analysisData = [analysisData];
+                      }
+                    } catch (parseError) {
+                      console.error("Error parsing JSON:", parseError);
+                      analysisData = [{ error: "Invalid JSON format", rawText: userData.analysis.rawText }];
+                    }
+                  } else {
+                    // If no JSON block is found, try parsing the entire rawText as JSON
+                    try {
+                      analysisData = JSON.parse(rawText);
+                      if (!Array.isArray(analysisData)) {
+                        analysisData = [analysisData];
+                      }
+                    } catch {
+                      // If all parsing fails, just use the raw text
+                      analysisData = [{ rawText: userData.analysis.rawText }];
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error("Error parsing analysis data:", error);
+                analysisData = [{ error: "Could not parse analysis data" }];
+              }
+            }
+
+            return {
+              ...user,
+              processed: true,
+              analysis: analysisData,
+            };
+          }
+          return user;
+        });
+
+        // Save the updated list to localStorage
+        localStorage.setItem(
+          "userImagesList",
+          JSON.stringify(updatedUsersList)
+        );
+
+        // Update state
+        setUserImagesList(updatedUsersList);
+
+        setMessage({
+          type: "success",
+          content: "Xử lý hình ảnh thành công!",
+        });
+      } else {
+        setMessage({
+          type: "error",
+          content: result.message || "Có lỗi xảy ra khi xử lý hình ảnh",
+        });
+      }
+    } catch (error) {
+      console.error("Image processing error:", error);
+      setMessage({
+        type: "error",
+        content: "Có lỗi xảy ra khi xử lý hình ảnh",
+      });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  return (
+    <div className="container">
+      <Head>
+        <title>GPT-Scan-Strava</title>
+        <meta name="description" content="GPT Scan Strava Application" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <main className="main">
+        <h1 className="title">Welcome to GPT-Scan-Strava</h1>
+
+        <p className="description">
+          Xin chào! Đây là trang Next.js cho ứng dụng của bạn
+        </p>
+
+        <div className="card">
+          <div className="card-body">
+            <h5 className="card-title">Tải lên hình ảnh</h5>
+
+            {message.content && (
+              <div
+                className={`alert ${
+                  message.type === "success" ? "alert-success" : "alert-danger"
+                }`}
+              >
+                {message.content}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mt-3">
+              <div className="mb-3">
+                <label htmlFor="userId" className="form-label">
+                  User ID
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="userId"
+                  name="userId"
+                  value={formData.userId}
+                  onChange={handleInputChange}
+                  placeholder="Nhập User ID"
+                  required
+                />
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="imageFiles" className="form-label">
+                  Chọn nhiều hình ảnh
+                </label>
+                <input
+                  type="file"
+                  className="form-control"
+                  id="imageFiles"
+                  name="imageFiles"
+                  onChange={handleInputChange}
+                  accept="image/*"
+                  multiple
+                  required
+                />
+                {formData.imageFiles.length > 0 && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      Đã chọn {formData.imageFiles.length} hình ảnh
+                    </small>
+                    <ul className="list-group mt-2">
+                      {formData.imageFiles.map((file, index) => (
+                        <li
+                          key={index}
+                          className="list-group-item list-group-item-info"
+                        >
+                          {file.name} ({Math.round(file.size / 1024)} KB)
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-success"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Đang tải lên..." : "Gửi"}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {userImagesList.length > 0 && (
+          <div className="card mt-4">
+            <div className="card-body">
+              <h5 className="card-title">Danh sách người dùng và hình ảnh</h5>
+
+              <div className="list-group">
+                {userImagesList.map((userData, userIndex) => (
+                  <div key={userIndex} className="list-group-item">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h6 className="mb-0">User ID: {userData.userId}</h6>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleRemoveUser(userData.userId)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+
+                    <p>Số lượng hình ảnh: {userData.images.length}</p>
+
+                    {userData.images.length > 0 && (
+                      <div className="border p-2 bg-light">
+                        <p className="mb-1">Danh sách file:</p>
+                        <ul className="list-unstyled">
+                          {userData.images.map((image, imgIndex) => (
+                            <li key={imgIndex} className="small text-secondary">
+                              {image}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {!userData.processed && (
+                      <button
+                        className="btn btn-sm btn-primary mt-2"
+                        onClick={() => processImages(userData.userId)}
+                        disabled={isProcessing === userData.userId}
+                      >
+                        {isProcessing === userData.userId
+                          ? "Đang xử lý..."
+                          : "Xử lý hình ảnh"}
+                      </button>
+                    )}
+
+                    {userData.processed && userData.analysis && (
+                      <div className="mt-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="mb-0">Kết quả phân tích:</h6>
+                          <span className="badge bg-success">Đã xử lý</span>
+                        </div>
+
+                        <div className="table-responsive">
+                          <table className="table table-bordered table-sm">
+                            <thead className="table-light">
+                              <tr>
+                                <th>Hoạt động</th>
+                                <th>Ngày</th>
+                                <th>Khoảng cách</th>
+                                <th>Tốc độ</th>
+                                <th>Thời gian</th>
+                                <th>Địa điểm</th>
+                                <th>Thành tựu</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Array.isArray(userData.analysis) ? (
+                                userData.analysis.map(
+                                  (item: any, index: number) => (
+                                    <tr key={index}>
+                                      <td>{item.activity_name || "-"}</td>
+                                      <td>{item.date || "-"}</td>
+                                      <td>{item.distance || "-"}</td>
+                                      <td>{item.pace || "-"}</td>
+                                      <td>{item.time || "-"}</td>
+                                      <td>{item.location || "-"}</td>
+                                      <td>
+                                        {item.achievements !== undefined
+                                          ? item.achievements
+                                          : "-"}
+                                      </td>
+                                    </tr>
+                                  )
+                                )
+                              ) : (
+                                <tr>
+                                  <td colSpan={7} className="text-center">
+                                    Không có dữ liệu phân tích
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default Home;
