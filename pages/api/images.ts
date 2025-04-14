@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import path from 'path';
-
-// Importing results file for demonstration
-import resultsData from '../../results.json';
+import GPTVisionLoader from '../../gptVision.loader';
 
 export default async function handler(
   req: NextApiRequest,
@@ -83,33 +81,64 @@ export default async function handler(
         });
       }
 
-      // In a real application, this is where we would process the images
-      // For now, we'll simulate processing by returning the pre-existing results
+      // Get all image files for this user
+      const files = await fs.promises.readdir(userDir);
       
-      // Check if we have analysis data for this user in results.json
-      const userData = resultsData[userId as keyof typeof resultsData];
-      
-      if (!userData) {
-        // If no data exists for this user, return a simulated result
-        return res.status(200).json({
-          success: true,
-          message: 'Images processed successfully',
-          data: { 
-            [userId]: [{
-              image: `${userId}-horizontal.jpeg`,
-              analysis: {
-                rawText: '```json\n{"activity_name": "Sample Run", "distance": "1.5 mi", "pace": "5:30 /mi", "time": "8m 15s", "date": "April 14, 2025", "location": "Sample Location", "achievements": 2}\n```'
-              }
-            }]
-          }
+      // Filter for image files
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+      const imageFiles = files.filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        const fileStat = fs.statSync(path.join(userDir, file));
+        return !fileStat.isDirectory() && imageExtensions.includes(ext);
+      });
+
+      if (imageFiles.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No image files found for this user'
         });
       }
 
-      // Return the actual results from results.json
+      // Process each image using GPTVisionLoader
+      // Make sure to set your OpenAI API key in environment variables
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      
+      if (!openaiApiKey) {
+        return res.status(500).json({
+          success: false,
+          message: 'OpenAI API key not configured'
+        });
+      }
+      
+      const visionLoader = new GPTVisionLoader(openaiApiKey);
+      
+      const processedResults = await Promise.all(
+        imageFiles.map(async (file) => {
+          const imagePath = path.join(userDir, file);
+          const analysis = await visionLoader.analyzeImage(imagePath);
+          return {
+            image: file,
+            analysis: {
+              rawText: analysis
+            }
+          };
+        })
+      );
+
+      // Save results for this user to a file
+      const resultsDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(resultsDir)) {
+        fs.mkdirSync(resultsDir, { recursive: true });
+      }
+      
+      const userResultsPath = path.join(resultsDir, `${userId}-results.json`);
+      fs.writeFileSync(userResultsPath, JSON.stringify(processedResults, null, 2));
+
+      // Return the results
       return res.status(200).json({
         success: true,
         message: 'Images processed successfully',
-        data: { [userId]: userData }
+        data: { [userId]: processedResults }
       });
     } catch (error) {
       console.error('Error processing images:', error);

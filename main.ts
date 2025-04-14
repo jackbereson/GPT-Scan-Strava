@@ -10,7 +10,7 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 // Cổng mặc định cho server
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001; // Changed from 3000 to 3001
 
 // Chuẩn bị và chạy server Next.js
 app.prepare().then(() => {

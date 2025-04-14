@@ -33,7 +33,7 @@ class GPTVisionLoader {
               content: [
                 {
                   type: "text",
-                  text: "Extract all activity data from this Strava screenshot, including: activity name, distance, pace, time, date, location, achievements. Return result in JSON format.",
+                  text: "Extract all activity data from this Strava screenshot, including: activity name, distance, pace, moving time, elevation gain, calories, heart rate, date, and location (if available). Return result in JSON format with exact values as shown in the image, preserving all units.",
                 },
                 {
                   type: "image_url",
