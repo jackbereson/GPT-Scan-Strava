@@ -2,25 +2,25 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 
-// Xác định môi trường phát triển
+// Define development environment
 const dev = process.env.NODE_ENV !== 'production';
 
-// Khởi tạo ứng dụng Next.js
+// Initialize Next.js application
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
-// Cổng mặc định cho server
+// Default port for server
 const port = process.env.PORT || 3001; // Changed from 3000 to 3001
 
-// Chuẩn bị và chạy server Next.js
+// Prepare and run Next.js server
 app.prepare().then(() => {
   createServer((req, res) => {
     const parsedUrl = parse(req.url!, true);
     handle(req, res, parsedUrl);
   }).listen(port, () => {
-    console.log(`> Server đang chạy trên http://localhost:${port}`);
-    console.log('> Bấm Ctrl+C để dừng');
+    console.log(`> Server running at http://localhost:${port}`);
+    console.log('> Press Ctrl+C to stop');
   });
 }).catch(err => {
-  console.error('Lỗi khi khởi động server:', err);
+  console.error('Error starting server:', err);
 });

@@ -104,7 +104,7 @@ const Home: NextPage = () => {
     if (formData.userId.trim() === "" || formData.imageFiles.length === 0) {
       setMessage({
         type: "error",
-        content: "Vui lòng nhập User ID và chọn ít nhất một hình ảnh",
+        content: "Please enter a User ID and select at least one image",
       });
       return;
     }
@@ -137,9 +137,9 @@ const Home: NextPage = () => {
         setMessage({
           type: "success",
           content:
-            "Tải lên thành công! Đã lưu " +
+            "Upload successful! Saved " +
             formData.imageFiles.length +
-            " hình ảnh.",
+            " images.",
         });
 
         setFormData({
@@ -154,14 +154,14 @@ const Home: NextPage = () => {
       } else {
         setMessage({
           type: "error",
-          content: result.message || "Có lỗi xảy ra khi tải lên",
+          content: result.message || "An error occurred during upload",
         });
       }
     } catch (error) {
       console.error("Upload error:", error);
       setMessage({
         type: "error",
-        content: "Có lỗi xảy ra khi tải lên",
+        content: "An error occurred during upload",
       });
     } finally {
       setIsSubmitting(false);
@@ -262,19 +262,19 @@ const Home: NextPage = () => {
 
         setMessage({
           type: "success",
-          content: "Xử lý hình ảnh thành công!",
+          content: "Image processing successful!",
         });
       } else {
         setMessage({
           type: "error",
-          content: result.message || "Có lỗi xảy ra khi xử lý hình ảnh",
+          content: result.message || "An error occurred while processing images",
         });
       }
     } catch (error) {
       console.error("Image processing error:", error);
       setMessage({
         type: "error",
-        content: "Có lỗi xảy ra khi xử lý hình ảnh",
+        content: "An error occurred while processing images",
       });
     } finally {
       setIsProcessing(null);
@@ -293,12 +293,12 @@ const Home: NextPage = () => {
         <h1 className="title">Welcome to GPT-Scan-Strava</h1>
 
         <p className="description">
-          Xin chào! Đây là trang Next.js cho ứng dụng của bạn
+          Hello! This is the Next.js page for your application
         </p>
 
         <div className="card">
           <div className="card-body">
-            <h5 className="card-title">Tải lên hình ảnh</h5>
+            <h5 className="card-title">Upload Images</h5>
 
             {message.content && (
               <div
@@ -322,14 +322,14 @@ const Home: NextPage = () => {
                   name="userId"
                   value={formData.userId}
                   onChange={handleInputChange}
-                  placeholder="Nhập User ID"
+                  placeholder="Enter User ID"
                   required
                 />
               </div>
 
               <div className="mb-3">
                 <label htmlFor="imageFiles" className="form-label">
-                  Chọn nhiều hình ảnh
+                  Select multiple images
                 </label>
                 <input
                   type="file"
@@ -344,7 +344,7 @@ const Home: NextPage = () => {
                 {formData.imageFiles.length > 0 && (
                   <div className="mt-2">
                     <small className="text-muted">
-                      Đã chọn {formData.imageFiles.length} hình ảnh
+                      Selected {formData.imageFiles.length} images
                     </small>
                     <ul className="list-group mt-2">
                       {formData.imageFiles.map((file, index) => (
@@ -365,7 +365,7 @@ const Home: NextPage = () => {
                 className="btn btn-success"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Đang tải lên..." : "Gửi"}
+                {isSubmitting ? "Uploading..." : "Submit"}
               </button>
             </form>
           </div>
@@ -374,7 +374,7 @@ const Home: NextPage = () => {
         {userImagesList.length > 0 && (
           <div className="card mt-4">
             <div className="card-body">
-              <h5 className="card-title">Danh sách người dùng và hình ảnh</h5>
+              <h5 className="card-title">User and Image List</h5>
 
               <div className="list-group">
                 {userImagesList.map((userData, userIndex) => (
@@ -385,15 +385,15 @@ const Home: NextPage = () => {
                         className="btn btn-sm btn-danger"
                         onClick={() => handleRemoveUser(userData.userId)}
                       >
-                        Xóa
+                        Delete
                       </button>
                     </div>
 
-                    <p>Số lượng hình ảnh: {userData.images.length}</p>
+                    <p>Number of images: {userData.images.length}</p>
 
                     {userData.images.length > 0 && (
                       <div className="border p-2 bg-light">
-                        <p className="mb-1">Danh sách file:</p>
+                        <p className="mb-1">File list:</p>
                         <ul className="list-unstyled">
                           {userData.images.map((image, imgIndex) => (
                             <li key={imgIndex} className="small text-secondary">
@@ -411,29 +411,29 @@ const Home: NextPage = () => {
                         disabled={isProcessing === userData.userId}
                       >
                         {isProcessing === userData.userId
-                          ? "Đang xử lý..."
-                          : "Xử lý hình ảnh"}
+                          ? "Processing..."
+                          : "Process Images"}
                       </button>
                     )}
 
                     {userData.processed && userData.analysis && (
                       <div className="mt-3">
                         <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h6 className="mb-0">Kết quả phân tích:</h6>
-                          <span className="badge bg-success">Đã xử lý</span>
+                          <h6 className="mb-0">Analysis Results:</h6>
+                          <span className="badge bg-success">Processed</span>
                         </div>
 
                         <div className="table-responsive">
                           <table className="table table-bordered table-sm">
                             <thead className="table-light">
                               <tr>
-                                <th>Hoạt động</th>
-                                <th>Ngày</th>
-                                <th>Khoảng cách</th>
-                                <th>Tốc độ</th>
-                                <th>Thời gian</th>
-                                <th>Địa điểm</th>
-                                <th>Thành tựu</th>
+                                <th>Activity</th>
+                                <th>Date</th>
+                                <th>Distance</th>
+                                <th>Pace</th>
+                                <th>Time</th>
+                                <th>Location</th>
+                                <th>Achievements</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -458,7 +458,7 @@ const Home: NextPage = () => {
                               ) : (
                                 <tr>
                                   <td colSpan={7} className="text-center">
-                                    Không có dữ liệu phân tích
+                                    No analysis data available
                                   </td>
                                 </tr>
                               )}
