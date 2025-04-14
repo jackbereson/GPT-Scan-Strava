@@ -8,8 +8,7 @@
     "start": "node dist/main.js",
     "dev": "ts-node main.ts",
     "next-dev": "next dev",
-    "next-start": "next start",
-    "dev:all": "concurrently \"yarn dev\" \"yarn next-dev\""
+    "next-start": "next start"
   },
   "author": "",
   "license": "ISC",

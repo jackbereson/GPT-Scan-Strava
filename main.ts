@@ -10,7 +10,7 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 // Default port for server
-const port = process.env.PORT || 3001; // Changed from 3000 to 3001
+const port = process.env.PORT || 3000; // Changed from 3000 to 3001
 
 // Prepare and run Next.js server
 app.prepare().then(() => {
