@@ -1,0 +1,22 @@
+[
+  {
+    "image": "z6503194642502_2088c39f24b824ca1a3a382a38d4bf01.jpg",
+    "error": "OpenAI API quota exceeded"
+  },
+  {
+    "image": "z6503194661224_1c188cb90efd6f59f1dabd8fc8385a67.jpg",
+    "error": "Skipped due to API quota limit"
+  },
+  {
+    "image": "z6503194677497_975c9328cb721e4c83bdbdcc8f6928e2.jpg",
+    "error": "Skipped due to API quota limit"
+  },
+  {
+    "image": "z6503194677499_3e73955ed178f237305d00abb12a3baa.jpg",
+    "error": "Skipped due to API quota limit"
+  },
+  {
+    "image": "z6503194682961_f56f1783ad7851b508f2e4fbe4a4e726.jpg",
+    "error": "Skipped due to API quota limit"
+  }
+]
