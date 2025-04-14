@@ -1,4 +1,5 @@
 import GPTVisionLoader from "./gptVision.loader";
+import ImageProcessor from "./imageProcessor.service";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
@@ -14,9 +15,22 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
+// Define types for our results
+interface ImageAnalysisResult {
+  image: string;
+  analysis?: any;
+  error?: string;
+}
+
+interface UserResults {
+  [userFolder: string]: ImageAnalysisResult[];
+}
+
 async function processImages() {
   // Initialize the GPT Vision loader
   const visionLoader = new GPTVisionLoader(OPENAI_API_KEY);
+  // Initialize the Image Processor
+  const imageProcessor = new ImageProcessor();
 
   // Define the images directory
   const imagesDir = path.join(__dirname, "public", "images");
@@ -28,82 +42,151 @@ async function processImages() {
       return;
     }
 
-    // Get all image files from the directory
-    const imageFiles = fs.readdirSync(imagesDir).filter((file) => {
-      const ext = path.extname(file).toLowerCase();
-      return ext === ".jpg" || ext === ".jpeg" || ext === ".png";
-    });
+    // Get all user folders
+    const userFolders = fs.readdirSync(imagesDir, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
 
-    console.log(`Found ${imageFiles.length} images to process`);
+    if (userFolders.length === 0) {
+      console.error(`❌ No user folders found in ${imagesDir}`);
+      return;
+    }
 
-    // Process each image
-    const results = [];
+    console.log(`Found ${userFolders.length} user folders to process: ${userFolders.join(', ')}`);
+
+    // Process each user's folder
+    const allResults: UserResults = {};
     let quotaExceeded = false;
 
-    for (const imageFile of imageFiles) {
-      // If quota is already exceeded, skip processing more images
-      if (quotaExceeded) {
-        results.push({
-          image: imageFile,
-          error: "Skipped due to API quota limit"
-        });
-        continue;
-      }
+    // First, merge images for each user folder
+    for (const userFolder of userFolders) {
+      const userDir = path.join(imagesDir, userFolder);
+      console.log(`\n🔄 Merging images for user: ${userFolder}`);
+      
+      // // Merge images vertically (default)
+      // const verticalMergeResult = await imageProcessor.mergeImagesInFolder(
+      //   userDir, 
+      //   `${userFolder}-vertical`, 
+      //   { 
+      //     direction: 'vertical',
+      //     margin: 10,
+      //     outputFormat: 'jpeg',
+      //     quality: 90 
+      //   }
+      // );
 
-      const imagePath = path.join(imagesDir, imageFile);
-      console.log(`\n📷 Processing image: ${imageFile}`);
+      // if (verticalMergeResult.success) {
+      //   console.log(`✅ Vertical merge successful: ${verticalMergeResult.outputPath}`);
+      // } else {
+      //   console.error(`❌ Failed to merge images vertically: ${verticalMergeResult.error}`);
+      // }
 
-      try {
-        const result = await visionLoader.analyzeImage(imagePath);
-
-        // Try to parse the content as JSON
-        let parsedResult;
-        try {
-          parsedResult = JSON.parse(result);
-        } catch (parseError) {
-          // If GPT didn't return valid JSON, use the raw text
-          parsedResult = { rawText: result };
+      // Merge images horizontally with 2 images per row
+      const horizontalMergeResult = await imageProcessor.mergeImagesInFolder(
+        userDir, 
+        `${userFolder}-horizontal`, 
+        { 
+          direction: 'horizontal',
+          maxImagesPerRow: 2,
+          margin: 10,
+          outputFormat: 'jpeg',
+          quality: 90 
         }
+      );
 
-        // Add the image filename to the result
-        results.push({
-          image: imageFile,
-          analysis: parsedResult,
-        });
-      } catch (err: any) {
-        // Check for quota exceeded error
-        if (err.name === 'QuotaExceededError' || 
-            (err.error?.type === 'insufficient_quota') || 
-            (err.message && err.message.includes('quota'))) {
-          
-          console.error(`\n❌ OpenAI API QUOTA EXCEEDED ❌`);
-          console.error(`You have reached your API usage limit.`);
-          console.error(`Please check your billing details at: https://platform.openai.com/account/billing`);
-          
-          // Mark quota as exceeded to skip remaining images
-          quotaExceeded = true;
-          
-          results.push({
-            image: imageFile,
-            error: "OpenAI API quota exceeded"
-          });
-        } else {
-          console.error(`❌ Error analyzing ${imageFile}:`, err);
-          results.push({
-            image: imageFile,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      if (horizontalMergeResult.success) {
+        console.log(`✅ Horizontal merge successful: ${horizontalMergeResult.outputPath}`);
+      } else {
+        console.error(`❌ Failed to merge images horizontally: ${horizontalMergeResult.error}`);
       }
     }
 
+    // Then analyze the merged horizontal images instead of individual images
+    for (const userFolder of userFolders) {
+      const userDir = path.join(imagesDir, userFolder);
+      const mergedDir = path.join(userDir, 'merged');
+      const horizontalImagePath = path.join(mergedDir, `${userFolder}-horizontal.jpeg`);
+      
+      console.log(`\n👤 Processing merged image for user: ${userFolder}`);
+      
+      // Store results for this user
+      const userResults: ImageAnalysisResult[] = [];
+
+      // Skip if quota is already exceeded
+      if (quotaExceeded) {
+        userResults.push({
+          image: `${userFolder}-horizontal.jpeg`,
+          error: "Skipped due to API quota limit"
+        });
+      } else {
+        try {
+          // Check if the merged image exists
+          if (!fs.existsSync(horizontalImagePath)) {
+            console.error(`❌ Merged horizontal image not found: ${horizontalImagePath}`);
+            userResults.push({
+              image: `${userFolder}-horizontal.jpeg`,
+              error: "Merged image not found"
+            });
+            continue;
+          }
+          
+          console.log(`📷 Analyzing merged horizontal image for user ${userFolder}`);
+          
+          // Use the merged horizontal image for analysis
+          const content = await visionLoader.analyzeImage(horizontalImagePath);
+          
+          // Try to parse the content as JSON
+          let parsedResult;
+          try {
+            parsedResult = JSON.parse(content);
+          } catch (parseError) {
+            // If GPT didn't return valid JSON, use the raw text
+            parsedResult = { rawText: content };
+          }
+          
+          // Add the image filename to the result
+          userResults.push({
+            image: `${userFolder}-horizontal.jpeg`,
+            analysis: parsedResult,
+          });
+        } catch (err: any) {
+          // Check for quota exceeded error
+          if (err.name === 'QuotaExceededError' || 
+              (err.error?.type === 'insufficient_quota') || 
+              (err.message && err.message.includes('quota'))) {
+            
+            console.error(`\n❌ OpenAI API QUOTA EXCEEDED ❌`);
+            console.error(`You have reached your API usage limit.`);
+            console.error(`Please check your billing details at: https://platform.openai.com/account/billing`);
+            
+            // Mark quota as exceeded to skip remaining users
+            quotaExceeded = true;
+            
+            userResults.push({
+              image: `${userFolder}-horizontal.jpeg`,
+              error: "OpenAI API quota exceeded"
+            });
+          } else {
+            console.error(`❌ Error analyzing merged image for ${userFolder}:`, err);
+            userResults.push({
+              image: `${userFolder}-horizontal.jpeg`,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      
+      // Add user results to the all results object
+      allResults[userFolder] = userResults;
+    }
+
     // Output the final results as JSON
-    console.log("\n===== ANALYSIS RESULTS =====\n");
-    console.log(JSON.stringify(results, null, 2));
+    console.log("\n===== ANALYSIS RESULTS BY USER =====\n");
+    console.log(JSON.stringify(allResults, null, 2));
 
     // Save results to file
     const outputFile = path.join(__dirname, "results.json");
-    fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
+    fs.writeFileSync(outputFile, JSON.stringify(allResults, null, 2));
     console.log(`\n✅ Results saved to ${outputFile}`);
     
     // Display additional message if quota was exceeded

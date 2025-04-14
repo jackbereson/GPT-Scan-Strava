@@ -52,3 +52,5 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+results.json
