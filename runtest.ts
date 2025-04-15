@@ -1,5 +1,5 @@
-import GPTVisionLoader from "./gptVision.loader";
-import ImageProcessor from "./imageProcessor.service";
+import GPTVisionLoader from "./services/gptVision.loader";
+import ImageProcessor from "./services/imageProcessor.service";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";

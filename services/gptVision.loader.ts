@@ -50,8 +50,40 @@ class GPTVisionLoader {
         const content = response.choices[0]?.message?.content;
 
         console.log("✅ Parsed Result:\n", content);
-
-        return content;
+        
+        // Parse the JSON content to return an object instead of a string
+        try {
+          if (content) {
+            // Extract JSON from the content (in case it contains markdown code block)
+            let jsonString = content;
+            
+            // Try to extract JSON from markdown code blocks
+            const jsonMatch = content.match(/```(?:json)?([\s\S]*?)```/);
+            if (jsonMatch) {
+              jsonString = jsonMatch[1].trim();
+            }
+            
+            // If there's no code block but we see a JSON object directly
+            if (jsonString.trim().startsWith("{") && jsonString.trim().endsWith("}")) {
+              return JSON.parse(jsonString);
+            }
+            
+            // If the result already contained parsed JSON (like your example that started with "✅ Parsed Result:")
+            const parsedResultMatch = content.match(/✅\s*Parsed\s*Result:\s*(?:```(?:json)?([\s\S]*?)```|([\s\S]*))/i);
+            if (parsedResultMatch) {
+              const extractedJson = (parsedResultMatch[1] || parsedResultMatch[2]).trim();
+              return JSON.parse(extractedJson);
+            }
+            
+            // Final fallback - just try to parse the whole content
+            return JSON.parse(jsonString);
+          }
+          return null;
+        } catch (jsonError) {
+          console.warn("⚠️ Failed to parse JSON result:", jsonError);
+          // Return the raw content if JSON parsing fails
+          return content;
+        }
       } catch (error: any) {
         // Check specifically for quota errors
         if (

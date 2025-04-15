@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import path from 'path';
-import GPTVisionLoader from '../../gptVision.loader';
+import GPTVisionLoader from '../../services/gptVision.loader';
+import ImageProcessor from '../../services/imageProcessor.service';
 
 export default async function handler(
   req: NextApiRequest,
@@ -99,7 +100,6 @@ export default async function handler(
         });
       }
 
-      // Process each image using GPTVisionLoader
       // Make sure to set your OpenAI API key in environment variables
       const openaiApiKey = process.env.OPENAI_API_KEY;
       
@@ -110,20 +110,41 @@ export default async function handler(
         });
       }
       
+      // Initialize services
       const visionLoader = new GPTVisionLoader(openaiApiKey);
+      const imageProcessor = new ImageProcessor();
       
-      const processedResults = await Promise.all(
-        imageFiles.map(async (file) => {
-          const imagePath = path.join(userDir, file);
-          const analysis = await visionLoader.analyzeImage(imagePath);
-          return {
-            image: file,
-            analysis: {
-              rawText: analysis
-            }
-          };
-        })
+      // First, merge images horizontally with 2 images per row
+      console.log(`🔄 Merging images for user: ${userId}`);
+      const horizontalMergeResult = await imageProcessor.mergeImagesInFolder(
+        userDir, 
+        `${userId}-horizontal`, 
+        { 
+          direction: 'horizontal',
+          maxImagesPerRow: 2,
+          margin: 10,
+          outputFormat: 'jpeg',
+          quality: 90 
+        }
       );
+
+      if (!horizontalMergeResult.success) {
+        return res.status(500).json({
+          success: false,
+          message: `Failed to merge images: ${horizontalMergeResult.error}`
+        });
+      }
+
+      console.log(`✅ Horizontal merge successful: ${horizontalMergeResult.outputPath}`);
+
+      // Use the merged horizontal image for analysis
+      const mergedImagePath = horizontalMergeResult.outputPath as string;
+      const analysis = await visionLoader.analyzeImage(mergedImagePath);
+      
+      const processedResult = {
+        image: path.basename(mergedImagePath),
+        analysis: analysis // Store the analysis object directly since it's already parsed
+      };
 
       // Save results for this user to a file
       const resultsDir = path.join(process.cwd(), 'data');
@@ -132,13 +153,13 @@ export default async function handler(
       }
       
       const userResultsPath = path.join(resultsDir, `${userId}-results.json`);
-      fs.writeFileSync(userResultsPath, JSON.stringify(processedResults, null, 2));
+      fs.writeFileSync(userResultsPath, JSON.stringify(processedResult, null, 2));
 
       // Return the results
       return res.status(200).json({
         success: true,
-        message: 'Images processed successfully',
-        data: { [userId]: processedResults }
+        message: 'Images merged and processed successfully',
+        data: { [userId]: processedResult }
       });
     } catch (error) {
       console.error('Error processing images:', error);

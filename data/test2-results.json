@@ -1,8 +1,0 @@
-[
-  {
-    "image": "1744649081293-jhbdw6u04xcb1.jpg",
-    "analysis": {
-      "rawText": "```json\n{\n  \"activity_name\": \"Run\",\n  \"distance\": \"3.11 mi\",\n  \"pace\": \"6:43 /mi\",\n  \"moving_time\": \"20:57\",\n  \"elevation_gain\": \"147 ft\",\n  \"calories\": \"367 Cal\",\n  \"heart_rate\": \"183 bpm\",\n  \"location\": \"Chattanooga Memorial Park Cemetery\"\n}\n```"
-    }
-  }
-]

@@ -11,12 +11,28 @@ interface UserImageData {
     distance?: string;
     pace?: string;
     time?: string;
+    moving_time?: string;
     date?: string;
     location?: string;
     achievements?: number;
+    elevation_gain?: string;
+    calories?: string;
+    heart_rate?: string;
     rawText?: string;
     error?: string;
   }[];
+}
+
+interface ActivityData {
+  activity_name?: string;
+  distance?: string;
+  pace?: string;
+  moving_time?: string;
+  elevation_gain?: string;
+  calories?: string;
+  heart_rate?: string;
+  date?: string;
+  location?: string;
 }
 
 const Home: NextPage = () => {
@@ -29,21 +45,18 @@ const Home: NextPage = () => {
   const [message, setMessage] = useState({ type: "", content: "" });
   const [userImagesList, setUserImagesList] = useState<UserImageData[]>([]);
 
+  // Load data from localStorage when component mounts
   useEffect(() => {
-    // Load user images list from localStorage on component mount
-    loadUserImagesFromLocalStorage();
-  }, []);
-
-  const loadUserImagesFromLocalStorage = () => {
     try {
       const storedData = localStorage.getItem("userImagesList");
       if (storedData) {
-        setUserImagesList(JSON.parse(storedData));
+        const parsedData = JSON.parse(storedData);
+        setUserImagesList(parsedData);
       }
     } catch (error) {
-      console.error("Error loading from localStorage:", error);
+      console.error("Error loading data from localStorage:", error);
     }
-  };
+  }, []);
 
   const saveToLocalStorage = (userId: string, newImages: string[]) => {
     try {
@@ -195,7 +208,7 @@ const Home: NextPage = () => {
       });
 
       const result = await response.json();
-
+      console.log("Processing result:", result);
       if (response.ok && result.success) {
         // Update the user's processed status and analysis data
         const updatedUsersList = userImagesList.map((user) => {
@@ -205,37 +218,8 @@ const Home: NextPage = () => {
 
             if (result.data && result.data[userId]) {
               try {
-                const userData = result.data[userId][0];
-                if (userData.analysis && userData.analysis.rawText) {
-                  // Try to parse the JSON from the rawText
-                  const rawText = userData.analysis.rawText;
-                  // Extract the JSON part between the backticks with improved regex
-                  // Allow for flexible whitespace and different markdown code formats
-                  const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-                  if (jsonMatch && jsonMatch[1]) {
-                    try {
-                      analysisData = JSON.parse(jsonMatch[1]);
-                      // If the parsed data is not an array, wrap it in an array
-                      if (!Array.isArray(analysisData)) {
-                        analysisData = [analysisData];
-                      }
-                    } catch (parseError) {
-                      console.error("Error parsing JSON:", parseError);
-                      analysisData = [{ error: "Invalid JSON format", rawText: userData.analysis.rawText }];
-                    }
-                  } else {
-                    // If no JSON block is found, try parsing the entire rawText as JSON
-                    try {
-                      analysisData = JSON.parse(rawText);
-                      if (!Array.isArray(analysisData)) {
-                        analysisData = [analysisData];
-                      }
-                    } catch {
-                      // If all parsing fails, just use the raw text
-                      analysisData = [{ rawText: userData.analysis.rawText }];
-                    }
-                  }
-                }
+                const userData = result.data[userId];
+                analysisData = userData.analysis;
               } catch (error) {
                 console.error("Error parsing analysis data:", error);
                 analysisData = [{ error: "Could not parse analysis data" }];
@@ -250,6 +234,8 @@ const Home: NextPage = () => {
           }
           return user;
         });
+
+        console.log("updatedUsersList", updatedUsersList);
 
         // Save the updated list to localStorage
         localStorage.setItem(
@@ -267,7 +253,8 @@ const Home: NextPage = () => {
       } else {
         setMessage({
           type: "error",
-          content: result.message || "An error occurred while processing images",
+          content:
+            result.message || "An error occurred while processing images",
         });
       }
     } catch (error) {
@@ -286,7 +273,10 @@ const Home: NextPage = () => {
       <Head>
         <title>GPT-Scan-Strava</title>
         <meta name="description" content="GPT Scan Strava Application" />
-        <link rel="icon" href="/favicon.ico" />
+        <link
+          rel="icon"
+          href="https://cdn.oaistatic.com/assets/favicon-miwirzcw.ico"
+        />
       </Head>
 
       <main className="main">
@@ -431,9 +421,12 @@ const Home: NextPage = () => {
                                 <th>Date</th>
                                 <th>Distance</th>
                                 <th>Pace</th>
-                                <th>Time</th>
+                                <th>Moving Time</th>
                                 <th>Location</th>
                                 <th>Achievements</th>
+                                <th>Elevation Gain</th>
+                                <th>Calories</th>
+                                <th>Heart Rate</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -445,19 +438,22 @@ const Home: NextPage = () => {
                                       <td>{item.date || "-"}</td>
                                       <td>{item.distance || "-"}</td>
                                       <td>{item.pace || "-"}</td>
-                                      <td>{item.time || "-"}</td>
+                                      <td>{item.moving_time || "-"}</td>
                                       <td>{item.location || "-"}</td>
                                       <td>
                                         {item.achievements !== undefined
                                           ? item.achievements
                                           : "-"}
                                       </td>
+                                      <td>{item.elevation_gain || "-"}</td>
+                                      <td>{item.calories || "-"}</td>
+                                      <td>{item.heart_rate || "-"}</td>
                                     </tr>
                                   )
                                 )
                               ) : (
                                 <tr>
-                                  <td colSpan={7} className="text-center">
+                                  <td colSpan={10} className="text-center">
                                     No analysis data available
                                   </td>
                                 </tr>

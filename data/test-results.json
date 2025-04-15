@@ -1,8 +1,0 @@
-[
-  {
-    "image": "1744649062101-Screenshot_20181213-151353_Strava.jpg",
-    "analysis": {
-      "rawText": "```json\n{\n  \"activity_name\": \"Morning Run\",\n  \"distance\": \"16.6 km\",\n  \"pace\": \"6:28 /km\",\n  \"moving_time\": \"1:47:41\",\n  \"elevation_gain\": \"74 m\",\n  \"calories\": \"1,220 cal\",\n  \"average_heart_rate\": \"159 bpm\",\n  \"date\": \"November 25, 2017 at 7:51 AM\",\n  \"location\": \"San Francisco\"\n}\n```"
-    }
-  }
-]
